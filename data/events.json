@@ -1,0 +1,159 @@
+[
+    {
+        "event_name": "Overall Diet Coke Trend",
+        "total_conv_vol": 208263,
+        "indian_participation": 14,
+        "trendline": [
+            {"period": "Jan 24", "conversations": 131},
+            {"period": "Feb 24", "conversations": 10391},
+            {"period": "Mar 24", "conversations": 5136},
+            {"period": "Apr 24", "conversations": 7298},
+            {"period": "May 24", "conversations": 4788},
+            {"period": "Jun 24", "conversations": 3036},
+            {"period": "Jul 24", "conversations": 5218},
+            {"period": "Aug 24", "conversations": 4342},
+            {"period": "Sep 24", "conversations": 2861},
+            {"period": "Oct 24", "conversations": 6966},
+            {"period": "Nov 24", "conversations": 3639},
+            {"period": "Dec 24", "conversations": 7624},
+            {"period": "Jan 25", "conversations": 14514},
+            {"period": "Feb 25", "conversations": 6238},
+            {"period": "Mar 25", "conversations": 13618},
+            {"period": "Apr 25", "conversations": 12617},
+            {"period": "May 25", "conversations": 15726},
+            {"period": "Jun 25", "conversations": 9573},
+            {"period": "Jul 25", "conversations": 6007},
+            {"period": "Aug 25", "conversations": 6156},
+            {"period": "Sep 25", "conversations": 12264},
+            {"period": "Oct 25", "conversations": 7227},
+            {"period": "Nov 25", "conversations": 9555},
+            {"period": "Dec 25", "conversations": 16037},
+            {"period": "Jan 26", "conversations": 16764}
+        ]
+    },
+    {
+        "event_name": "WHO Aspartame Cancer Ruling",
+        "date": "2023-07-14",
+        "total_conv_vol": 14710,
+        "indian_participation": 11,
+        "trendline": [
+            {"period": "Jan 24", "conversations": 8200},
+            {"period": "Feb 24", "conversations": 6510}
+        ]
+    },
+    {
+        "event_name": "Dua Lipa 'Dirty Cola' Viral",
+        "date": "2024-10-04",
+        "total_conv_vol": 17584,
+        "indian_participation": 18,
+        "trendline": [
+            {"period": "Oct 24", "conversations": 8500},
+            {"period": "Nov 24", "conversations": 2931},
+            {"period": "Dec 24", "conversations": 6153}
+        ]
+    },
+    {
+        "event_name": "Trump/Elon/RFK Jet Photo",
+        "date": "2024-11-17",
+        "total_conv_vol": 8440,
+        "indian_participation": 9,
+        "trendline": [
+            {"period": "Nov 24", "conversations": 7372},
+            {"period": "Dec 24", "conversations": 630},
+            {"period": "Jan 25", "conversations": 98},
+            {"period": "Feb 25", "conversations": 63}
+        ]
+    },
+    {
+        "event_name": "Trump's Diet Coke Button Return",
+        "date": "2025-01-20",
+        "total_conv_vol": 30204,
+        "indian_participation": 12,
+        "trendline": [
+            {"period": "Jan 25", "conversations": 4290},
+            {"period": "Feb 25", "conversations": 1150},
+            {"period": "Mar 25", "conversations": 3210},
+            {"period": "Apr 25", "conversations": 606},
+            {"period": "May 25", "conversations": 163},
+            {"period": "Jun 25", "conversations": 1194},
+            {"period": "Jul 25", "conversations": 497},
+            {"period": "Aug 25", "conversations": 95},
+            {"period": "Sep 25", "conversations": 235},
+            {"period": "Oct 25", "conversations": 352},
+            {"period": "Nov 25", "conversations": 602},
+            {"period": "Dec 25", "conversations": 201}
+        ]
+    },
+    {
+        "event_name": "Elon 'Never Quit' Tweet",
+        "date": "2025-01-24",
+        "total_conv_vol": 34764,
+        "indian_participation": 16,
+        "trendline": [
+            {"period": "Jan 24", "conversations": 1926},
+            {"period": "Feb 24", "conversations": 1594},
+            {"period": "Mar 24", "conversations": 211},
+            {"period": "Apr 24", "conversations": 665},
+            {"period": "May 24", "conversations": 415},
+            {"period": "Jun 24", "conversations": 465},
+            {"period": "Jul 24", "conversations": 82},
+            {"period": "Aug 24", "conversations": 267},
+            {"period": "Sep 24", "conversations": 367},
+            {"period": "Oct 24", "conversations": 17},
+            {"period": "Nov 24", "conversations": 80},
+            {"period": "Dec 24", "conversations": 103},
+            {"period": "Jan 25", "conversations": 20383},
+            {"period": "Feb 25", "conversations": 1020}
+        ]
+    },
+    {
+        "event_name": "'Fridge Cigarette' Trend",
+        "date": "2025-06-01",
+        "total_conv_vol": 11277,
+        "indian_participation": 13,
+        "trendline": [
+            {"period": "May 25", "conversations": 2503},
+            {"period": "Jun 25", "conversations": 6271},
+            {"period": "Jul 25", "conversations": 2503}
+        ]
+    },
+    {
+        "event_name": "Diet Coke vs Coke Zero Content (India)",
+        "date": "2025-08-15",
+        "total_conv_vol": 7795,
+        "indian_participation": 92,
+        "trendline": [
+            {"period": "Jul 24", "conversations": 982},
+            {"period": "Aug 24", "conversations": 110},
+            {"period": "Sep 24", "conversations": 68},
+            {"period": "Oct 24", "conversations": 42},
+            {"period": "Nov 24", "conversations": 0},
+            {"period": "Dec 24", "conversations": 52},
+            {"period": "Jan 25", "conversations": 0},
+            {"period": "Feb 25", "conversations": 0},
+            {"period": "Mar 25", "conversations": 21},
+            {"period": "Apr 25", "conversations": 678},
+            {"period": "May 25", "conversations": 711},
+            {"period": "Jun 25", "conversations": 8},
+            {"period": "Jul 25", "conversations": 1184},
+            {"period": "Aug 25", "conversations": 570},
+            {"period": "Sep 25", "conversations": 2130},
+            {"period": "Oct 25", "conversations": 416},
+            {"period": "Nov 25", "conversations": 544},
+            {"period": "Dec 25", "conversations": 173},
+            {"period": "Jan 26", "conversations": 106}
+        ]
+    },
+    {
+        "event_name": "GST 'Sin Tax' Hike (India 40%)",
+        "date": "2025-09-01",
+        "total_conv_vol": 10615,
+        "indian_participation": 89,
+        "trendline": [
+            {"period": "Sep 25", "conversations": 8609},
+            {"period": "Oct 25", "conversations": 1017},
+            {"period": "Nov 25", "conversations": 547},
+            {"period": "Dec 25", "conversations": 389}
+        ]
+    }
+]

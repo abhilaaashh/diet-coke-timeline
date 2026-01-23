@@ -1,26 +1,68 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #fafafa;
   --foreground: #171717;
+  --diet-coke-red: #F40009;
+  --diet-coke-red-light: #ff4d4d;
+  --diet-coke-silver: #C0C0C0;
+  --accent: #F40009;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-diet-coke-red: var(--diet-coke-red);
+  --color-diet-coke-silver: var(--diet-coke-silver);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-inter), system-ui, sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+
+body {
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+/* Subtle dot pattern for sections */
+.subtle-pattern {
+  background-image: radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.03) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+/* Chart tooltip custom styles */
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+
+/* Event card highlight */
+.highlight-card {
+  box-shadow: 0 0 0 3px rgba(244, 0, 9, 0.3);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, var(--diet-coke-red) 0%, var(--diet-coke-red-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Focus visible styles */
+:focus-visible {
+  outline: 2px solid var(--diet-coke-red);
+  outline-offset: 2px;
 }

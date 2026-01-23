@@ -1,0 +1,277 @@
+"use client";
+
+import { useState, useMemo, useCallback, memo, useRef } from "react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceDot,
+} from "recharts";
+import { ChartDataPoint, TimelineEvent } from "@/types";
+import EventTooltip from "./EventTooltip";
+import { useIsMobile, useIsTouchDevice } from "@/hooks/useIsMobile";
+
+interface TimelineProps {
+  chartData: ChartDataPoint[];
+  events: TimelineEvent[];
+  onEventClick: (eventId: string) => void;
+}
+
+interface CustomDotProps {
+  cx?: number;
+  cy?: number;
+  isHovered: boolean;
+  isMobile: boolean;
+  onMouseEnter: (e: React.MouseEvent) => void;
+  onMouseLeave: () => void;
+  onClick: () => void;
+  onTouchStart: (e: React.TouchEvent) => void;
+}
+
+const CustomEventDot = memo(function CustomEventDot({
+  cx,
+  cy,
+  isHovered,
+  isMobile,
+  onMouseEnter,
+  onMouseLeave,
+  onClick,
+  onTouchStart,
+}: CustomDotProps) {
+  if (cx === undefined || cy === undefined) return null;
+
+  // Larger hit area and dot size on mobile for better touch targets
+  const hitAreaRadius = isMobile ? 28 : 20;
+  const hoverRingRadius = isMobile ? 20 : 16;
+  const dotRadius = isMobile ? (isHovered ? 11 : 9) : (isHovered ? 9 : 7);
+  const innerDotRadius = isMobile ? 3 : 2;
+
+  return (
+    <g
+      onMouseEnter={!isMobile ? onMouseEnter : undefined}
+      onMouseLeave={!isMobile ? onMouseLeave : undefined}
+      onClick={onClick}
+      onTouchStart={onTouchStart}
+      style={{ cursor: "pointer" }}
+    >
+      {/* Invisible larger hit area for easier hovering/tapping */}
+      <circle cx={cx} cy={cy} r={hitAreaRadius} fill="transparent" />
+      {isHovered && (
+        <circle cx={cx} cy={cy} r={hoverRingRadius} fill="rgba(244, 0, 9, 0.15)" />
+      )}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={dotRadius}
+        fill="#F40009"
+        stroke="#fff"
+        strokeWidth={2}
+      />
+      <circle cx={cx} cy={cy} r={innerDotRadius} fill="#fff" />
+    </g>
+  );
+});
+
+const CustomTooltipContent = memo(function CustomTooltipContent({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ value: number; payload: ChartDataPoint }>;
+}) {
+  if (!active || !payload || !payload.length) return null;
+
+  const data = payload[0];
+  return (
+    <div className="bg-white px-4 py-3 rounded-lg shadow-lg border border-gray-100">
+      <p className="text-xs text-gray-400 uppercase mb-1">{data.payload.date}</p>
+      <p className="text-xl font-bold text-gray-900">
+        {data.value.toLocaleString()}
+      </p>
+      <p className="text-xs text-gray-500">conversations</p>
+    </div>
+  );
+});
+
+export default function Timeline({ chartData, events, onEventClick }: TimelineProps) {
+  const [hoveredEvent, setHoveredEvent] = useState<string | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMobile = useIsMobile();
+  const isTouch = useIsTouchDevice();
+
+  const dateToConversations = useMemo(() => {
+    const map = new Map<string, number>();
+    chartData.forEach((d) => map.set(d.date, d.conversations));
+    return map;
+  }, [chartData]);
+
+  const firstChartDate = chartData.length > 0 ? chartData[0].date : "";
+
+  const eventMarkers = useMemo(() => {
+    return events.map((event) => {
+      const hasMatchingDate = dateToConversations.has(event.date);
+      const displayDate = hasMatchingDate ? event.date : firstChartDate;
+      const conversations = dateToConversations.get(displayDate) || 0;
+      
+      return {
+        ...event,
+        date: displayDate,
+        conversations,
+      };
+    });
+  }, [events, dateToConversations, firstChartDate]);
+
+  const handleMouseEnter = useCallback((eventId: string, e: React.MouseEvent) => {
+    // Clear any pending hide timeout
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+    setHoveredEvent(eventId);
+    const rect = (e.currentTarget as SVGElement).getBoundingClientRect();
+    setTooltipPosition({ x: rect.left + rect.width / 2, y: rect.top });
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    // Add a small delay before hiding to prevent flickering
+    hideTimeoutRef.current = setTimeout(() => {
+      setHoveredEvent(null);
+      setTooltipPosition(null);
+    }, 150);
+  }, []);
+
+  // Handle touch events for mobile - tap directly navigates to event (no tooltip)
+  const handleTouchStart = useCallback((eventId: string, e: React.TouchEvent) => {
+    e.preventDefault();
+    // On mobile, directly navigate to the event card
+    onEventClick(eventId);
+  }, [onEventClick]);
+
+  // Close tooltip when tapping elsewhere on mobile
+  const handleChartClick = useCallback(() => {
+    if (isTouch && hoveredEvent) {
+      setHoveredEvent(null);
+      setTooltipPosition(null);
+    }
+  }, [isTouch, hoveredEvent]);
+
+  const handleEventClick = useCallback((eventId: string) => {
+    if (isTouch) {
+      // On touch devices, clicks are handled via touch events
+      return;
+    }
+    onEventClick(eventId);
+  }, [onEventClick, isTouch]);
+
+  const hoveredEventData = events.find((e) => e.id === hoveredEvent);
+
+  const renderDot = useCallback((event: typeof eventMarkers[0]) => {
+    return (props: { cx?: number; cy?: number }) => (
+      <CustomEventDot
+        cx={props.cx}
+        cy={props.cy}
+        isHovered={hoveredEvent === event.id}
+        isMobile={isMobile}
+        onMouseEnter={(e) => handleMouseEnter(event.id, e)}
+        onMouseLeave={handleMouseLeave}
+        onClick={() => handleEventClick(event.id)}
+        onTouchStart={(e) => handleTouchStart(event.id, e)}
+      />
+    );
+  }, [hoveredEvent, isMobile, handleMouseEnter, handleMouseLeave, handleEventClick, handleTouchStart]);
+
+  return (
+    <div className="relative w-full">
+      <div className="bg-white rounded-xl border border-gray-200 p-5 md:p-8">
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-1 h-6 bg-[#F40009] rounded-full" />
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900">
+              Conversation Trends
+            </h2>
+          </div>
+          <p className="text-gray-500 text-sm ml-3">
+            {isTouch ? "Tap markers to view event details" : "Click on markers to explore key moments"}
+          </p>
+        </div>
+
+        <div className="h-[320px] sm:h-[350px] md:h-[400px] w-full" onClick={handleChartClick}>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              data={chartData}
+              margin={{ top: 10, right: 10, left: isMobile ? 0 : 10, bottom: 10 }}
+            >
+              <defs>
+                <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#F40009" stopOpacity={0.1} />
+                  <stop offset="100%" stopColor="#F40009" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="0" stroke="#f0f0f0" vertical={false} />
+              <XAxis
+                dataKey="date"
+                tick={{ fill: "#9ca3af", fontSize: isMobile ? 9 : 11 }}
+                tickLine={false}
+                axisLine={{ stroke: "#e5e7eb" }}
+                interval={isMobile ? 2 : "preserveStartEnd"}
+                angle={isMobile ? -45 : 0}
+                textAnchor={isMobile ? "end" : "middle"}
+                height={isMobile ? 50 : 30}
+              />
+              <YAxis
+                tick={{ fill: "#9ca3af", fontSize: isMobile ? 10 : 11 }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                width={isMobile ? 35 : 50}
+              />
+              <Tooltip content={<CustomTooltipContent />} />
+              <Area
+                type="monotone"
+                dataKey="conversations"
+                stroke="#F40009"
+                strokeWidth={2}
+                fill="url(#areaGradient)"
+                dot={false}
+                activeDot={{ r: isMobile ? 6 : 5, fill: "#F40009", stroke: "#fff", strokeWidth: 2 }}
+              />
+              {eventMarkers.map((event) => (
+                <ReferenceDot
+                  key={event.id}
+                  x={event.date}
+                  y={event.conversations}
+                  shape={renderDot(event)}
+                />
+              ))}
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Legend */}
+        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-center gap-6 text-sm text-gray-500">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-1 bg-[#F40009] rounded-full" />
+            <span>Conversations</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-[#F40009] border-2 border-white shadow" />
+            <span>Key Events</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Floating tooltip - only show on desktop (non-touch devices) */}
+      {!isTouch && hoveredEventData && tooltipPosition && (
+        <EventTooltip
+          event={hoveredEventData}
+          position={tooltipPosition}
+        />
+      )}
+    </div>
+  );
+}

@@ -1,36 +1,116 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Diet Coke Rapid Research Timeline
+
+An interactive single-page timeline visualization showcasing Diet Coke conversations and key cultural moments. Built for Consuma's rapid research project.
+
+## Features
+
+- **Interactive Line Chart**: Visualize conversation trends over time with Recharts
+- **Timeline Event Markers**: Click on markers to explore key moments
+- **Hover Tooltips**: Preview event details on hover
+- **Event Cards**: Detailed cards with impact analysis and Indian participation stats
+- **Scroll Animations**: Smooth entrance animations powered by Framer Motion
+- **Responsive Design**: Works on desktop, tablet, and mobile
+
+## Tech Stack
+
+- **Framework**: Next.js 14 (App Router)
+- **Charting**: Recharts
+- **Animations**: Framer Motion
+- **Styling**: Tailwind CSS
+- **Deployment**: Vercel (static export)
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+ 
+- npm
+
+### Installation
 
 ```bash
+# Install dependencies
+npm install
+
+# Start development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Build for Production
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+```
 
-## Learn More
+Static files will be generated in the `out/` directory.
 
-To learn more about Next.js, take a look at the following resources:
+## Deployment to Vercel
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Option 1: Vercel CLI
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+# Install Vercel CLI globally
+npm i -g vercel
 
-## Deploy on Vercel
+# Deploy
+vercel
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Option 2: GitHub Integration
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Push this repository to GitHub
+2. Go to [vercel.com](https://vercel.com)
+3. Import the repository
+4. Vercel will auto-detect Next.js and deploy
+
+## Customizing Data
+
+Update the timeline data in `data/events.json`:
+
+```json
+{
+  "chartData": [
+    { "date": "YYYY-MM", "conversations": number }
+  ],
+  "events": [
+    {
+      "id": "unique-id",
+      "date": "YYYY-MM",
+      "title": "Event Title",
+      "description": "Event description",
+      "image": "/images/event-image.jpg",
+      "impact": "Impact description",
+      "indianParticipation": 15.5
+    }
+  ]
+}
+```
+
+## Adding Images
+
+Place event images in `public/images/` and reference them as `/images/filename.jpg` in the events data.
+
+## Project Structure
+
+```
+├── app/
+│   ├── page.tsx          # Main page component
+│   ├── layout.tsx        # Root layout
+│   └── globals.css       # Global styles
+├── components/
+│   ├── Timeline.tsx      # Chart with event markers
+│   ├── EventCard.tsx     # Event detail cards
+│   └── EventTooltip.tsx  # Hover tooltips
+├── data/
+│   └── events.json       # Timeline data
+├── types/
+│   └── index.ts          # TypeScript interfaces
+└── public/
+    └── images/           # Event images
+```
+
+## License
+
+Private - Consuma © 2026
