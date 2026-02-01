@@ -2,8 +2,9 @@
 
 import { useState, useMemo, useCallback, memo, useRef } from "react";
 import {
-  AreaChart,
+  ComposedChart,
   Area,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -12,6 +13,11 @@ import {
   ReferenceDot,
 } from "recharts";
 import { ChartDataPoint, TimelineEvent } from "@/types";
+
+interface IndiaTrendline {
+  period: string;
+  conversations: number;
+}
 import EventTooltip from "./EventTooltip";
 import { useIsMobile, useIsTouchDevice } from "@/hooks/useIsMobile";
 
@@ -19,6 +25,8 @@ interface TimelineProps {
   chartData: ChartDataPoint[];
   events: TimelineEvent[];
   onEventClick: (eventId: string) => void;
+  indiaTrendline?: IndiaTrendline[];
+  isReachView?: boolean;
 }
 
 interface CustomDotProps {
@@ -76,33 +84,73 @@ const CustomEventDot = memo(function CustomEventDot({
   );
 });
 
+const formatValue = (value: number, isReach: boolean) => {
+  if (isReach && value >= 1000000) {
+    return `${(value / 1000000).toFixed(2)}M`;
+  } else if (value >= 1000000) {
+    return `${(value / 1000000).toFixed(1)}M`;
+  }
+  return value.toLocaleString();
+};
+
 const CustomTooltipContent = memo(function CustomTooltipContent({
   active,
   payload,
+  label,
+  isReachView = false,
 }: {
   active?: boolean;
-  payload?: Array<{ value: number; payload: ChartDataPoint }>;
+  payload?: Array<{ value: number; dataKey: string; color: string; name: string }>;
+  label?: string;
+  isReachView?: boolean;
 }) {
   if (!active || !payload || !payload.length) return null;
 
-  const data = payload[0];
   return (
     <div className="bg-white px-4 py-3 rounded-lg shadow-lg border border-gray-100">
-      <p className="text-xs text-gray-400 uppercase mb-1">{data.payload.date}</p>
-      <p className="text-xl font-bold text-gray-900">
-        {data.value.toLocaleString()}
-      </p>
-      <p className="text-xs text-gray-500">conversations</p>
+      <p className="text-xs text-gray-400 uppercase mb-2">{label}</p>
+      <div className="space-y-1.5">
+        {payload.map((entry, index) => (
+          entry.value !== undefined && entry.value !== null && (
+            <div key={index} className="flex items-center gap-2">
+              <div
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-xs text-gray-500">{entry.name}:</span>
+              <span className="text-sm font-bold text-gray-900">
+                {formatValue(entry.value, isReachView)}
+              </span>
+            </div>
+          )
+        ))}
+      </div>
+      {isReachView && (
+        <p className="text-[10px] text-gray-400 mt-2 border-t border-gray-100 pt-1">Estimated reach</p>
+      )}
     </div>
   );
 });
 
-export default function Timeline({ chartData, events, onEventClick }: TimelineProps) {
+export default function Timeline({ chartData, events, onEventClick, indiaTrendline, isReachView = false }: TimelineProps) {
   const [hoveredEvent, setHoveredEvent] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMobile = useIsMobile();
   const isTouch = useIsTouchDevice();
+
+  // Merge global and India data
+  const combinedChartData = useMemo(() => {
+    if (!indiaTrendline) return chartData.map(d => ({ ...d, india: undefined }));
+    
+    const indiaMap = new Map<string, number>();
+    indiaTrendline.forEach((d) => indiaMap.set(d.period, d.conversations));
+    
+    return chartData.map((d) => ({
+      ...d,
+      india: indiaMap.get(d.date),
+    }));
+  }, [chartData, indiaTrendline]);
 
   const dateToConversations = useMemo(() => {
     const map = new Map<string, number>();
@@ -190,20 +238,22 @@ export default function Timeline({ chartData, events, onEventClick }: TimelinePr
       <div className="bg-white rounded-xl border border-gray-200 p-5 md:p-8">
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-1 h-6 bg-[#F40009] rounded-full" />
+            <div className={`w-1 h-6 rounded-full ${isReachView ? "bg-gradient-to-b from-[#F40009] to-[#8B5CF6]" : "bg-[#F40009]"}`} />
             <h2 className="text-xl md:text-2xl font-bold text-gray-900">
-              Conversation Trends
+              {isReachView ? "Estimated Reach" : "Conversation Trends"}
             </h2>
           </div>
           <p className="text-gray-500 text-sm ml-3">
-            {isTouch ? "Tap markers to view event details" : "Click on markers to explore key moments"}
+            {isReachView 
+              ? "Reach is estimated at ~6,200-6,500x mentions"
+              : isTouch ? "Tap markers to view event details" : "Click on markers to explore key moments"}
           </p>
         </div>
 
         <div className="h-[320px] sm:h-[350px] md:h-[400px] w-full" onClick={handleChartClick}>
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
-              data={chartData}
+            <ComposedChart
+              data={combinedChartData}
               margin={{ top: 10, right: 10, left: isMobile ? 0 : 10, bottom: 10 }}
             >
               <defs>
@@ -218,7 +268,19 @@ export default function Timeline({ chartData, events, onEventClick }: TimelinePr
                 tick={{ fill: "#9ca3af", fontSize: isMobile ? 9 : 11 }}
                 tickLine={false}
                 axisLine={{ stroke: "#e5e7eb" }}
-                interval={isMobile ? 2 : "preserveStartEnd"}
+                interval={isMobile ? 60 : 30}
+                tickFormatter={(value) => {
+                  // Show "Mon 'YY" format for cleaner labels
+                  const parts = value.split(" ");
+                  if (parts.length === 3) {
+                    const day = parseInt(parts[1].replace(",", ""));
+                    if (day === 1 || day === 15) {
+                      return parts[0] + " '" + parts[2];
+                    }
+                    return "";
+                  }
+                  return value;
+                }}
                 angle={isMobile ? -45 : 0}
                 textAnchor={isMobile ? "end" : "middle"}
                 height={isMobile ? 50 : 30}
@@ -227,19 +289,43 @@ export default function Timeline({ chartData, events, onEventClick }: TimelinePr
                 tick={{ fill: "#9ca3af", fontSize: isMobile ? 10 : 11 }}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
-                width={isMobile ? 35 : 50}
+                tickFormatter={(value) => {
+                  if (isReachView) {
+                    // Format in millions for reach view
+                    if (value >= 1000000) {
+                      return `${(value / 1000000).toFixed(1)}M`;
+                    } else if (value >= 1000) {
+                      return `${(value / 1000).toFixed(0)}k`;
+                    }
+                    return value.toString();
+                  }
+                  return value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value.toString();
+                }}
+                width={isMobile ? 40 : 55}
               />
-              <Tooltip content={<CustomTooltipContent />} />
+              <Tooltip content={<CustomTooltipContent isReachView={isReachView} />} />
               <Area
                 type="monotone"
                 dataKey="conversations"
+                name="Global"
                 stroke="#F40009"
                 strokeWidth={2}
                 fill="url(#areaGradient)"
                 dot={false}
                 activeDot={{ r: isMobile ? 6 : 5, fill: "#F40009", stroke: "#fff", strokeWidth: 2 }}
               />
+              {indiaTrendline && (
+                <Line
+                  type="monotone"
+                  dataKey="india"
+                  name="India"
+                  stroke="#8B5CF6"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: isMobile ? 5 : 4, fill: "#8B5CF6", stroke: "#fff", strokeWidth: 2 }}
+                  connectNulls={false}
+                />
+              )}
               {eventMarkers.map((event) => (
                 <ReferenceDot
                   key={event.id}
@@ -248,16 +334,22 @@ export default function Timeline({ chartData, events, onEventClick }: TimelinePr
                   shape={renderDot(event)}
                 />
               ))}
-            </AreaChart>
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
 
         {/* Legend */}
-        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-center gap-6 text-sm text-gray-500">
+        <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-sm text-gray-500">
           <div className="flex items-center gap-2">
             <div className="w-8 h-1 bg-[#F40009] rounded-full" />
-            <span>Conversations</span>
+            <span>{isReachView ? "Global Reach" : "Global"}</span>
           </div>
+          {indiaTrendline && (
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-0.5 bg-[#8B5CF6] rounded-full" />
+              <span>{isReachView ? "India Reach" : "India"}</span>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-[#F40009] border-2 border-white shadow" />
             <span>Key Events</span>

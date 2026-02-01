@@ -75,20 +75,36 @@ export default function TrendlineOverlay({
   overallTrendline,
   eventTrendlines,
 }: TrendlineOverlayProps) {
+  // Default to only showing "Diet Coke India" (event-1) alongside the global trend
   const [selectedEvents, setSelectedEvents] = useState<Set<string>>(
-    new Set(eventTrendlines.map((e) => e.id))
+    new Set(eventTrendlines.filter((e) => e.name === "Diet Coke India").map((e) => e.id))
   );
   const [showOverall, setShowOverall] = useState(true);
   const isMobile = useIsMobile();
 
   const parsePeriod = (period: string): Date => {
-    const [month, year] = period.split(" ");
+    // Handle format "Jan 1, 23" (daily) or "Jan 23" (monthly)
+    const parts = period.split(" ");
+    const month = parts[0];
     const monthIndex = [
       "Jan", "Feb", "Mar", "Apr", "May", "Jun",
       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
     ].indexOf(month);
-    const fullYear = parseInt(year) < 50 ? 2000 + parseInt(year) : 1900 + parseInt(year);
-    return new Date(fullYear, monthIndex, 1);
+    
+    let day = 1;
+    let year: number;
+    
+    if (parts.length === 3) {
+      // Daily format: "Jan 1, 23"
+      day = parseInt(parts[1].replace(",", ""));
+      year = parseInt(parts[2]);
+    } else {
+      // Monthly format: "Jan 23"
+      year = parseInt(parts[1]);
+    }
+    
+    const fullYear = year < 50 ? 2000 + year : 1900 + year;
+    return new Date(fullYear, monthIndex, day);
   };
 
   const combinedData = useMemo(() => {
@@ -246,7 +262,19 @@ export default function TrendlineOverlay({
                 tick={{ fill: "#9ca3af", fontSize: isMobile ? 9 : 10 }}
                 tickLine={false}
                 axisLine={{ stroke: "#e5e7eb" }}
-                interval={isMobile ? 2 : "preserveStartEnd"}
+                interval={isMobile ? 60 : 30}
+                tickFormatter={(value) => {
+                  // Show "Mon 'YY" format for cleaner labels
+                  const parts = value.split(" ");
+                  if (parts.length === 3) {
+                    const day = parseInt(parts[1].replace(",", ""));
+                    if (day === 1 || day === 15) {
+                      return parts[0] + " '" + parts[2];
+                    }
+                    return "";
+                  }
+                  return value;
+                }}
                 angle={isMobile ? -45 : 0}
                 textAnchor={isMobile ? "end" : "middle"}
                 height={isMobile ? 50 : 30}

@@ -12,17 +12,19 @@ const rawData = eventsData as Array<{
   event_name: string;
   date?: string;
   total_conv_vol: number;
+  total_reach?: number;
   indian_participation?: number;
-  trendline: Array<{ period: string; conversations: number }>;
+  trendline: Array<{ period: string; conversations: number; reach?: number }>;
 }>;
 
-// Helper function to convert ISO date (2023-07-17) to chart format (Jul 23)
+// Helper function to convert ISO date (2023-07-17) to chart format (Jul 17, 23)
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function isoToChartDate(isoDate: string): string {
   const date = new Date(isoDate);
   const month = monthNames[date.getMonth()];
+  const day = date.getDate();
   const year = date.getFullYear().toString().slice(-2);
-  return `${month} ${year}`;
+  return `${month} ${day}, ${year}`;
 }
 
 // Generate colors for event trendlines
@@ -42,6 +44,7 @@ const eventImageMap: Record<string, string> = {
   "Trump/Elon/RFK Jet Photo": "/events/trump-elon-rfk-pvtjet.png",
   "'Fridge Cigarette' Trend": "/events/fridge-cig.png",
   "Diet Coke vs Coke Zero Content (India)": "/events/coke-zero-vs-diet-coke.png",
+  "Diet Coke India": "",
 };
 
 // First element contains the overall trend data
@@ -73,12 +76,39 @@ const eventTrendlines = rawData.slice(1).map((item, index) => ({
   totalVolume: item.total_conv_vol,
 }));
 
+// Get India trendline for the main timeline view
+const indiaTrendlineData = rawData.find((item) => item.event_name === "Diet Coke India")?.trendline;
+
+// Transform trendline to reach chartData format
+const reachChartData: ChartDataPoint[] = overallTrend.trendline.map((item) => ({
+  date: item.period,
+  conversations: item.reach || 0,
+}));
+
+// Prepare reach event trendlines for overlay view
+const reachEventTrendlines = rawData.slice(1).map((item, index) => ({
+  id: `event-${index + 1}`,
+  name: item.event_name,
+  trendline: item.trendline.map(t => ({ period: t.period, conversations: t.reach || 0 })),
+  color: eventColors[index % eventColors.length],
+  totalVolume: item.total_reach || 0,
+}));
+
+// Get India reach trendline
+const indiaReachTrendlineData = rawData.find((item) => item.event_name === "Diet Coke India")?.trendline.map(t => ({
+  period: t.period,
+  conversations: t.reach || 0,
+}));
+
 const data: TimelineData = { chartData, events };
 
 // Calculate total conversations: overall + all individual events
 const totalConversations = rawData.reduce((sum, item) => sum + item.total_conv_vol, 0);
 
-type ViewMode = "timeline" | "overlay";
+// Calculate total reach
+const totalReach = rawData.reduce((sum, item) => sum + (item.total_reach || 0), 0);
+
+type ViewMode = "timeline" | "overlay" | "reach";
 
 export default function Home() {
   const [highlightedEvent, setHighlightedEvent] = useState<string | null>(null);
@@ -176,7 +206,7 @@ export default function Home() {
             <div className="inline-flex bg-gray-100 p-1.5 sm:p-1 rounded-xl sm:rounded-lg">
               <button
                 onClick={() => setViewMode("timeline")}
-                className={`flex items-center gap-2 px-5 py-3 sm:px-4 sm:py-2 rounded-lg sm:rounded-md text-sm font-medium transition-all min-h-[44px] ${
+                className={`flex items-center gap-2 px-4 py-3 sm:px-3 sm:py-2 rounded-lg sm:rounded-md text-sm font-medium transition-all min-h-[44px] ${
                   viewMode === "timeline"
                     ? "bg-white text-gray-900 shadow-sm"
                     : "text-gray-600 hover:text-gray-900 active:bg-gray-200"
@@ -185,11 +215,12 @@ export default function Home() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
-                Timeline
+                <span className="hidden sm:inline">Timeline</span>
+                <span className="sm:hidden">Mentions</span>
               </button>
               <button
                 onClick={() => setViewMode("overlay")}
-                className={`flex items-center gap-2 px-5 py-3 sm:px-4 sm:py-2 rounded-lg sm:rounded-md text-sm font-medium transition-all min-h-[44px] ${
+                className={`flex items-center gap-2 px-4 py-3 sm:px-3 sm:py-2 rounded-lg sm:rounded-md text-sm font-medium transition-all min-h-[44px] ${
                   viewMode === "overlay"
                     ? "bg-white text-gray-900 shadow-sm"
                     : "text-gray-600 hover:text-gray-900 active:bg-gray-200"
@@ -199,6 +230,20 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
                 </svg>
                 Overlay
+              </button>
+              <button
+                onClick={() => setViewMode("reach")}
+                className={`flex items-center gap-2 px-4 py-3 sm:px-3 sm:py-2 rounded-lg sm:rounded-md text-sm font-medium transition-all min-h-[44px] ${
+                  viewMode === "reach"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900 active:bg-gray-200"
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Reach
               </button>
             </div>
           </div>
@@ -212,11 +257,20 @@ export default function Home() {
             chartData={data.chartData}
             events={data.events}
             onEventClick={handleEventClick}
+            indiaTrendline={indiaTrendlineData}
           />
-        ) : (
+        ) : viewMode === "overlay" ? (
           <TrendlineOverlay
             overallTrendline={data.chartData}
             eventTrendlines={eventTrendlines}
+          />
+        ) : (
+          <Timeline
+            chartData={reachChartData}
+            events={data.events}
+            onEventClick={handleEventClick}
+            indiaTrendline={indiaReachTrendlineData}
+            isReachView={true}
           />
         )}
       </section>
