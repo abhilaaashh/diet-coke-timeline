@@ -125,9 +125,6 @@ const CustomTooltipContent = memo(function CustomTooltipContent({
           )
         ))}
       </div>
-      {isReachView && (
-        <p className="text-[10px] text-gray-400 mt-2 border-t border-gray-100 pt-1">Estimated reach</p>
-      )}
     </div>
   );
 });
@@ -244,9 +241,7 @@ export default function Timeline({ chartData, events, onEventClick, indiaTrendli
             </h2>
           </div>
           <p className="text-gray-500 text-sm ml-3">
-            {isReachView 
-              ? "Reach is estimated at ~6,200-6,500x mentions"
-              : isTouch ? "Tap markers to view event details" : "Click on markers to explore key moments"}
+            {isTouch ? "Tap markers to view event details" : "Click on markers to explore key moments"}
           </p>
         </div>
 
