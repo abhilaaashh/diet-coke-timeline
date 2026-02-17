@@ -5,26 +5,148 @@ import Timeline from "@/components/Timeline";
 import TrendlineOverlay from "@/components/TrendlineOverlay";
 import EventCard from "@/components/EventCard";
 import eventsData from "@/data/events.json";
+import dcSalesRaw from "@/data/dc-sales.json";
 import { TimelineData, TimelineEvent, ChartDataPoint } from "@/types";
 
-// Transform the raw JSON data to match the expected structure
-const rawData = eventsData as Array<{
-  event_name: string;
-  date?: string;
-  total_conv_vol: number;
-  total_reach?: number;
-  indian_participation?: number;
-  trendline: Array<{ period: string; conversations: number; reach?: number }>;
-}>;
+// Sales data type
+interface SalesDataPoint {
+  period: string;
+  value: number;
+}
 
-// Helper function to convert ISO date (2023-07-17) to chart format (Jul 17, 23)
+interface GeographySales {
+  name: string;
+  color: string;
+  data: SalesDataPoint[];
+}
+
+interface SalesData {
+  description: string;
+  geographies: GeographySales[];
+}
+
+// Transform dc-sales.json into the format expected by Timeline
+const geographyColors: Record<string, string> = {
+  "United States of America": "#F40009",
+  "United Kingdom": "#10B981",
+  "Canada": "#F97316",
+  "India": "#8B5CF6",
+};
+
+function transformSalesData(rawSales: Record<string, Record<string, string>>): SalesData {
+  const geographies: GeographySales[] = Object.entries(rawSales).map(([name, monthlyData]) => {
+    const data: SalesDataPoint[] = Object.entries(monthlyData).map(([month, valueStr]) => {
+      // Convert "Jan 2023" to "Jan 1, 23" format and parse percentage
+      const parts = month.split(" ");
+      const period = `${parts[0]} 1, ${parts[1].slice(-2)}`;
+      const value = parseFloat(valueStr.replace("%", ""));
+      return { period, value };
+    });
+    return {
+      name,
+      color: geographyColors[name] || "#6B7280",
+      data,
+    };
+  });
+  return {
+    description: "Year-over-Year % Change in Diet Coke Sales by Geography",
+    geographies,
+  };
+}
+
+const salesData = transformSalesData(dcSalesRaw as Record<string, Record<string, string>>);
+
+// Transform the raw JSON data to match the expected structure
+const rawJsonData = eventsData as {
+  events: Array<{
+    event_name: string;
+    date?: string;
+    description?: string;
+    total_conv_vol: number;
+    total_reach?: number;
+    indian_participation?: number;
+    trendline: Array<{ period: string; conversations: number; reach?: number; note?: string }>;
+  }>;
+};
+
+const rawData = rawJsonData.events;
+
+// Helper function to convert ISO date (2023-07-17) to monthly chart format (Jul 1, 23)
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function isoToChartDate(isoDate: string): string {
   const date = new Date(isoDate);
   const month = monthNames[date.getMonth()];
-  const day = date.getDate();
   const year = date.getFullYear().toString().slice(-2);
-  return `${month} ${day}, ${year}`;
+  // Use first of month to match monthly data format
+  return `${month} 1, ${year}`;
+}
+
+// Deterministic pseudo-random number generator (mulberry32)
+function seededRandom(seed: number) {
+  let t = seed + 0x6D2B79F5;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+// Convert weekly trendline data to daily data with natural variation
+function weeklyToDaily(
+  trendline: Array<{ period: string; conversations: number; reach?: number }>,
+): Array<{ period: string; conversations: number; reach?: number }> {
+  const dailyData: Array<{ period: string; conversations: number; reach?: number }> = [];
+
+  for (let i = 0; i < trendline.length; i++) {
+    const item = trendline[i];
+    const parts = item.period.split(" ");
+    if (parts.length !== 3) continue;
+
+    const month = parts[0];
+    const day = parseInt(parts[1].replace(",", ""));
+    const year = parseInt(parts[2]);
+    const fullYear = year < 50 ? 2000 + year : 1900 + year;
+    const monthIdx = monthNames.indexOf(month);
+    const startDate = new Date(fullYear, monthIdx, day);
+
+    const weeklyConv = item.conversations;
+    const weeklyReach = item.reach || 0;
+
+    // Generate 7 daily values that sum to the weekly total
+    const rawWeights: number[] = [];
+    for (let d = 0; d < 7; d++) {
+      const seed = fullYear * 10000 + (monthIdx + 1) * 100 + day + d * 7 + i * 31;
+      rawWeights.push(0.5 + seededRandom(seed) * 1.5);
+    }
+    const weightSum = rawWeights.reduce((a, b) => a + b, 0);
+
+    for (let d = 0; d < 7; d++) {
+      const currentDate = new Date(startDate);
+      currentDate.setDate(startDate.getDate() + d);
+
+      // Stop if we'd overlap into the next week's data
+      if (i < trendline.length - 1) {
+        const nextParts = trendline[i + 1].period.split(" ");
+        if (nextParts.length === 3) {
+          const nMonth = monthNames.indexOf(nextParts[0]);
+          const nDay = parseInt(nextParts[1].replace(",", ""));
+          const nYear = parseInt(nextParts[2]) < 50 ? 2000 + parseInt(nextParts[2]) : 1900 + parseInt(nextParts[2]);
+          const nextStart = new Date(nYear, nMonth, nDay);
+          if (currentDate >= nextStart) break;
+        }
+      }
+
+      const dailyConv = Math.round((weeklyConv * rawWeights[d]) / weightSum);
+      const dailyReach = Math.round((weeklyReach * rawWeights[d]) / weightSum);
+
+      const m = monthNames[currentDate.getMonth()];
+      const dd = currentDate.getDate();
+      const yy = currentDate.getFullYear().toString().slice(-2);
+      const period = `${m} ${dd}, ${yy}`;
+
+      dailyData.push({ period, conversations: dailyConv, reach: dailyReach });
+    }
+  }
+
+  return dailyData;
 }
 
 // Generate colors for event trendlines
@@ -50,8 +172,50 @@ const eventImageMap: Record<string, string> = {
 // First element contains the overall trend data
 const overallTrend = rawData[0];
 
-// Transform trendline to chartData format
-const chartData: ChartDataPoint[] = overallTrend.trendline.map((item) => ({
+// Helper function to aggregate weekly data into monthly data
+function aggregateToMonthly(trendline: Array<{ period: string; conversations: number; reach?: number }>): Array<{ period: string; conversations: number; reach: number }> {
+  const monthlyMap = new Map<string, { conversations: number; reach: number }>();
+  
+  trendline.forEach((item) => {
+    // Parse the period (e.g., "Dec 26, 22" or "Jan 2, 23")
+    const parts = item.period.split(" ");
+    if (parts.length === 3) {
+      const month = parts[0];
+      const year = parts[2];
+      const monthKey = `${month} 1, ${year}`;
+      
+      const existing = monthlyMap.get(monthKey) || { conversations: 0, reach: 0 };
+      monthlyMap.set(monthKey, {
+        conversations: existing.conversations + item.conversations,
+        reach: existing.reach + (item.reach || 0),
+      });
+    }
+  });
+  
+  // Convert map to array and sort by date
+  const monthOrder = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return Array.from(monthlyMap.entries())
+    .map(([period, data]) => ({ period, ...data }))
+    .sort((a, b) => {
+      const [aMonth, , aYear] = a.period.split(" ");
+      const [bMonth, , bYear] = b.period.split(" ");
+      const aYearNum = parseInt(aYear);
+      const bYearNum = parseInt(bYear);
+      if (aYearNum !== bYearNum) return aYearNum - bYearNum;
+      return monthOrder.indexOf(aMonth) - monthOrder.indexOf(bMonth);
+    });
+}
+
+// Transform trendline to monthly chartData format (for Timeline with sales data)
+const monthlyTrendline = aggregateToMonthly(overallTrend.trendline);
+const chartData: ChartDataPoint[] = monthlyTrendline.map((item) => ({
+  date: item.period,
+  conversations: item.conversations,
+}));
+
+// Convert weekly data to daily for TrendlineOverlay (Event Impact view)
+const dailyOverallTrendline = weeklyToDaily(overallTrend.trendline);
+const weeklyChartData: ChartDataPoint[] = dailyOverallTrendline.map((item) => ({
   date: item.period,
   conversations: item.conversations,
 }));
@@ -61,26 +225,30 @@ const events: TimelineEvent[] = rawData.slice(1).map((item, index) => ({
   id: `event-${index + 1}`,
   date: item.date ? isoToChartDate(item.date) : "",
   title: item.event_name,
-  description: `Total conversation volume: ${item.total_conv_vol.toLocaleString()}`,
+  description: item.description || `Total conversation volume: ${item.total_conv_vol.toLocaleString()}`,
   image: eventImageMap[item.event_name] || "",
   impact: `${item.total_conv_vol.toLocaleString()} conversations`,
   indianParticipation: item.indian_participation ?? 0,
 }));
 
-// Prepare event trendlines for overlay view
+// Prepare event trendlines for overlay view (daily granularity)
 const eventTrendlines = rawData.slice(1).map((item, index) => ({
   id: `event-${index + 1}`,
   name: item.event_name,
-  trendline: item.trendline,
+  trendline: weeklyToDaily(item.trendline).map(d => ({ period: d.period, conversations: d.conversations })),
   color: eventColors[index % eventColors.length],
   totalVolume: item.total_conv_vol,
 }));
 
-// Get India trendline for the main timeline view
-const indiaTrendlineData = rawData.find((item) => item.event_name === "Diet Coke India")?.trendline;
+// Get India trendline for the main timeline view (monthly aggregated)
+const indiaRawTrendline = rawData.find((item) => item.event_name === "Diet Coke India")?.trendline;
+const indiaTrendlineData = indiaRawTrendline ? aggregateToMonthly(indiaRawTrendline).map(item => ({
+  period: item.period,
+  conversations: item.conversations,
+})) : undefined;
 
-// Transform trendline to reach chartData format
-const reachChartData: ChartDataPoint[] = overallTrend.trendline.map((item) => ({
+// Transform trendline to monthly reach chartData format
+const reachChartData: ChartDataPoint[] = monthlyTrendline.map((item) => ({
   date: item.period,
   conversations: item.reach || 0,
 }));
@@ -94,11 +262,11 @@ const reachEventTrendlines = rawData.slice(1).map((item, index) => ({
   totalVolume: item.total_reach || 0,
 }));
 
-// Get India reach trendline
-const indiaReachTrendlineData = rawData.find((item) => item.event_name === "Diet Coke India")?.trendline.map(t => ({
-  period: t.period,
-  conversations: t.reach || 0,
-}));
+// Get India reach trendline (monthly aggregated)
+const indiaReachTrendlineData = indiaRawTrendline ? aggregateToMonthly(indiaRawTrendline).map(item => ({
+  period: item.period,
+  conversations: item.reach,
+})) : undefined;
 
 const data: TimelineData = { chartData, events };
 
@@ -258,10 +426,11 @@ export default function Home() {
             events={data.events}
             onEventClick={handleEventClick}
             indiaTrendline={indiaTrendlineData}
+            salesData={salesData}
           />
         ) : viewMode === "overlay" ? (
           <TrendlineOverlay
-            overallTrendline={data.chartData}
+            overallTrendline={weeklyChartData}
             eventTrendlines={eventTrendlines}
           />
         ) : (

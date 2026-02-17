@@ -259,25 +259,26 @@ export default function TrendlineOverlay({
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
               <XAxis
                 dataKey="period"
-                tick={{ fill: "#9ca3af", fontSize: isMobile ? 9 : 10 }}
+                tick={{ fill: "#9ca3af", fontSize: isMobile ? 9 : 11 }}
                 tickLine={false}
                 axisLine={{ stroke: "#e5e7eb" }}
-                interval={isMobile ? 60 : 30}
+                interval="preserveStartEnd"
                 tickFormatter={(value) => {
                   // Show "Mon 'YY" format for cleaner labels
                   const parts = value.split(" ");
                   if (parts.length === 3) {
-                    const day = parseInt(parts[1].replace(",", ""));
-                    if (day === 1 || day === 15) {
-                      return parts[0] + " '" + parts[2];
-                    }
-                    return "";
+                    // Daily format: "Jan 1, 23" -> "Jan '23"
+                    return parts[0] + " '" + parts[2];
+                  } else if (parts.length === 2) {
+                    // Monthly format: "Jan 23" -> "Jan '23"
+                    return parts[0] + " '" + parts[1];
                   }
                   return value;
                 }}
-                angle={isMobile ? -45 : 0}
-                textAnchor={isMobile ? "end" : "middle"}
-                height={isMobile ? 50 : 30}
+                angle={isMobile ? -45 : -30}
+                textAnchor="end"
+                height={isMobile ? 60 : 50}
+                minTickGap={isMobile ? 40 : 60}
               />
               <YAxis
                 tick={{ fill: "#9ca3af", fontSize: isMobile ? 10 : 11 }}
@@ -293,7 +294,7 @@ export default function TrendlineOverlay({
               
               {showOverall && (
                 <Line
-                  type="monotone"
+                  type="linear"
                   dataKey="overall"
                   name="Diet Coke Conversations"
                   stroke="#F40009"
@@ -307,7 +308,7 @@ export default function TrendlineOverlay({
                 selectedEvents.has(event.id) && (
                   <Line
                     key={event.id}
-                    type="monotone"
+                    type="linear"
                     dataKey={event.id}
                     name={event.name}
                     stroke={event.color}
