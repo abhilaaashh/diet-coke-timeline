@@ -31,6 +31,78 @@ interface TrendlineOverlayProps {
   eventTrendlines: EventTrendline[];
 }
 
+type Granularity = "daily" | "weekly" | "monthly";
+
+const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Parse period string to Date object
+function parsePeriodToDate(period: string): Date {
+  const parts = period.split(" ");
+  const month = parts[0];
+  const monthIndex = monthNames.indexOf(month);
+  
+  let day = 1;
+  let year: number;
+  
+  if (parts.length === 3) {
+    // Daily format: "Jan 1, 23"
+    day = parseInt(parts[1].replace(",", ""));
+    year = parseInt(parts[2]);
+  } else {
+    // Monthly format: "Jan 23"
+    year = parseInt(parts[1]);
+  }
+  
+  const fullYear = year < 50 ? 2000 + year : 1900 + year;
+  return new Date(fullYear, monthIndex, day);
+}
+
+// Get the week start date (Monday) for a given date
+function getWeekStart(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+  return new Date(d.setDate(diff));
+}
+
+// Aggregate data to weekly granularity
+function aggregateToWeekly(data: Array<{ period: string; conversations: number }>): Array<{ period: string; conversations: number }> {
+  const weeklyMap = new Map<string, number>();
+  
+  data.forEach((item) => {
+    const date = parsePeriodToDate(item.period);
+    const weekStart = getWeekStart(date);
+    const m = monthNames[weekStart.getMonth()];
+    const dd = weekStart.getDate();
+    const yy = weekStart.getFullYear().toString().slice(-2);
+    const weekKey = `${m} ${dd}, ${yy}`;
+    
+    weeklyMap.set(weekKey, (weeklyMap.get(weekKey) || 0) + item.conversations);
+  });
+  
+  return Array.from(weeklyMap.entries())
+    .map(([period, conversations]) => ({ period, conversations }))
+    .sort((a, b) => parsePeriodToDate(a.period).getTime() - parsePeriodToDate(b.period).getTime());
+}
+
+// Aggregate data to monthly granularity
+function aggregateToMonthly(data: Array<{ period: string; conversations: number }>): Array<{ period: string; conversations: number }> {
+  const monthlyMap = new Map<string, number>();
+  
+  data.forEach((item) => {
+    const date = parsePeriodToDate(item.period);
+    const m = monthNames[date.getMonth()];
+    const yy = date.getFullYear().toString().slice(-2);
+    const monthKey = `${m} 1, ${yy}`;
+    
+    monthlyMap.set(monthKey, (monthlyMap.get(monthKey) || 0) + item.conversations);
+  });
+  
+  return Array.from(monthlyMap.entries())
+    .map(([period, conversations]) => ({ period, conversations }))
+    .sort((a, b) => parsePeriodToDate(a.period).getTime() - parsePeriodToDate(b.period).getTime());
+}
+
 const CustomTooltipContent = memo(function CustomTooltipContent({
   active,
   payload,
@@ -80,44 +152,46 @@ export default function TrendlineOverlay({
     new Set(eventTrendlines.filter((e) => e.name === "Diet Coke India").map((e) => e.id))
   );
   const [showOverall, setShowOverall] = useState(true);
+  const [granularity, setGranularity] = useState<Granularity>("daily");
   const isMobile = useIsMobile();
 
-  const parsePeriod = (period: string): Date => {
-    // Handle format "Jan 1, 23" (daily) or "Jan 23" (monthly)
-    const parts = period.split(" ");
-    const month = parts[0];
-    const monthIndex = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-    ].indexOf(month);
-    
-    let day = 1;
-    let year: number;
-    
-    if (parts.length === 3) {
-      // Daily format: "Jan 1, 23"
-      day = parseInt(parts[1].replace(",", ""));
-      year = parseInt(parts[2]);
-    } else {
-      // Monthly format: "Jan 23"
-      year = parseInt(parts[1]);
+  // Aggregate overall trendline based on granularity
+  const aggregatedOverallTrendline = useMemo(() => {
+    const rawData = overallTrendline.map((p) => ({ period: p.date, conversations: p.conversations }));
+    switch (granularity) {
+      case "weekly":
+        return aggregateToWeekly(rawData);
+      case "monthly":
+        return aggregateToMonthly(rawData);
+      default:
+        return rawData;
     }
-    
-    const fullYear = year < 50 ? 2000 + year : 1900 + year;
-    return new Date(fullYear, monthIndex, day);
-  };
+  }, [overallTrendline, granularity]);
+
+  // Aggregate event trendlines based on granularity
+  const aggregatedEventTrendlines = useMemo(() => {
+    return eventTrendlines.map((event) => ({
+      ...event,
+      trendline:
+        granularity === "weekly"
+          ? aggregateToWeekly(event.trendline)
+          : granularity === "monthly"
+          ? aggregateToMonthly(event.trendline)
+          : event.trendline,
+    }));
+  }, [eventTrendlines, granularity]);
 
   const combinedData = useMemo(() => {
     const periodMap = new Map<string, Record<string, number>>();
 
-    overallTrendline.forEach((point) => {
-      if (!periodMap.has(point.date)) {
-        periodMap.set(point.date, {});
+    aggregatedOverallTrendline.forEach((point) => {
+      if (!periodMap.has(point.period)) {
+        periodMap.set(point.period, {});
       }
-      periodMap.get(point.date)!["overall"] = point.conversations;
+      periodMap.get(point.period)!["overall"] = point.conversations;
     });
 
-    eventTrendlines.forEach((event) => {
+    aggregatedEventTrendlines.forEach((event) => {
       event.trendline.forEach((point) => {
         if (!periodMap.has(point.period)) {
           periodMap.set(point.period, {});
@@ -129,12 +203,12 @@ export default function TrendlineOverlay({
     const entries = Array.from(periodMap.entries())
       .map(([period, data]) => ({
         period,
-        date: parsePeriod(period),
+        date: parsePeriodToDate(period),
         ...data,
       }))
       .sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    eventTrendlines.forEach((event) => {
+    aggregatedEventTrendlines.forEach((event) => {
       const indicesWithData: number[] = [];
       entries.forEach((entry, idx) => {
         if (event.id in entry && entry[event.id as keyof typeof entry] !== undefined) {
@@ -157,7 +231,7 @@ export default function TrendlineOverlay({
     });
 
     return entries;
-  }, [overallTrendline, eventTrendlines]);
+  }, [aggregatedOverallTrendline, aggregatedEventTrendlines]);
 
   const toggleEvent = (eventId: string) => {
     setSelectedEvents((prev) => {
@@ -194,6 +268,25 @@ export default function TrendlineOverlay({
           </p>
         </div>
 
+        {/* Mobile granularity toggle */}
+        <div className="sm:hidden mb-4 flex justify-center">
+          <div className="inline-flex bg-gray-100 rounded-lg p-1">
+            {(["daily", "weekly", "monthly"] as Granularity[]).map((g) => (
+              <button
+                key={g}
+                onClick={() => setGranularity(g)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  granularity === g
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600"
+                }`}
+              >
+                {g.charAt(0).toUpperCase() + g.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Controls - hidden on mobile */}
         <div className="hidden sm:block mb-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
           <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -220,6 +313,25 @@ export default function TrendlineOverlay({
               />
               <span className="text-xs font-medium text-gray-700">Diet Coke Conversations</span>
             </label>
+            <div className="h-4 w-px bg-gray-200" />
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-medium text-gray-700">View:</span>
+              <div className="inline-flex bg-white rounded border border-gray-200">
+                {(["daily", "weekly", "monthly"] as Granularity[]).map((g) => (
+                  <button
+                    key={g}
+                    onClick={() => setGranularity(g)}
+                    className={`px-2 py-1 text-xs font-medium transition-colors ${
+                      granularity === g
+                        ? "bg-gray-900 text-white"
+                        : "text-gray-600 hover:bg-gray-50"
+                    } ${g === "daily" ? "rounded-l" : g === "monthly" ? "rounded-r" : ""}`}
+                  >
+                    {g.charAt(0).toUpperCase() + g.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Event toggles */}
